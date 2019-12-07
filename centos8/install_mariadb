@@ -1,0 +1,14 @@
+sudo cat <<EOF >> /etc/yum.repos.d/mariadb.repo
+[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.4/centos8-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
+EOF
+
+sudo dnf install -y boost-program-options
+sudo dnf --disablerepo=AppStream install -y MariaDB-server MariaDB-client
+sudo systemctl enable mariadb
+sudo systemctl start mariadb
+sudo systemctl status mariadb
+mysql_secure_installation

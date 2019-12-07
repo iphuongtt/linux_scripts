@@ -1,0 +1,75 @@
+#View info of vsftpd
+sudo dnf info vsftpd
+#Install vsftpd
+sudo dnf install -y vsftpd
+#Backup vsftpd config file
+mv /etc/vsftpd/vsftpd.conf /etc/vsftpd/vsftpd.conf_orig
+#Open firewall FTP port 21 incoming connections:
+sudo firewall-cmd --zone=public --permanent --add-service=ftp
+#Reload firewalld
+sudo firewall-cmd --reload
+#Securing VSFTPD with TLS connection step by step instructions
+dnf install openssl
+#Generate self-signed certificate or use your existing certificate. 
+#In this example we will generate the private key vsftpd.key and the signed certificate vsftpd.crt. 
+#You will be prompted to answer some questions. 
+#Feel free to leave most of them as default except Common Name:
+sudo openssl req -newkey rsa:2048 -nodes -keyout /etc/pki/tls/private/vsftpd.key -x509 -days 3650 -out /etc/pki/tls/certs/vsftpd.crt
+#Configure VSFTPD for the TLS encrypted connection. 
+#Open your existing VSFTPD /etc/vsftpd/vsftpd.conf configuration 
+#and add the following configuration in addition to the existing lines:
+sudo cat <<EOF >> /etc/vsftpd/vsftpd.conf
+listen=YES
+#Disallow anonymous logins; this allows unidentified users to access files via FTP. Ensure that the anonymous_enable setting to NO:
+anonymous_enable=NO
+#Enable local users to login, this will allow your regular user accounts to function as FTP accounts. Change the local_enable setting to YES:
+local_enable=YES
+#If you want local user to be able to write to a directory, then change the write_enable setting to YES:
+write_enable=YES
+local_umask=022
+nopriv_user=ftpuser
+virtual_use_local_privs=YES
+guest_enable=YES
+#local_root=/home/ftpuser/vftp
+#Local users will be ‘chroot jailed’ and they will be denied access to any other part of the server. Set the chroot_local_user setting to YES:
+chroot_local_user=YES
+allow_writeable_chroot=YES
+ls_recurse_enable=YES
+pam_service_name=vsftpd.virtual
+## Home Directory for virtual users
+user_sub_token=\$USER
+local_root=/home/ftpuser/vftp/\$USER
+max_clients=5
+hide_ids=YES
+chroot_list_enable=NO
+userlist_deny=YES
+userlist_file=/etc/vsftpd/user_list
+guest_enable=YES
+guest_username=ftpuser
+user_config_dir=/etc/vsftpd/vsftpd_user_conf
+pasv_enable=YES
+pasv_min_port=10090
+pasv_max_port=10100
+pasv_address=@@server_ip@@
+EOF
+
+cat > "/etc/pam.d/vsftpd.virtual" <<END
+#%PAM-1.0
+auth required pam_userdb.so db=/etc/vsftpd/vsftpd-virtual-user
+account required pam_userdb.so db=/etc/vsftpd/vsftpd-virtual-user
+session required pam_loginuid.so
+END
+#Open firewall port range to accommodate passive ports
+firewall-cmd --permanent --zone=public --add-port=10000-10100/tcp 
+firewall-cmd --reload
+#Create ftpuser
+useradd ftpuser
+passwd ftpuser
+usermod -a -G ftp ftpuser
+
+mkdir /home/ftpuser/vftp
+chown -R ftpuser:ftp /home/ftpuser/vftp/
+chmod 755 -R /home/ftpuser/vftp
+
+sudo systemctl enable vsftpd
+sudo systemctl start vsftpd

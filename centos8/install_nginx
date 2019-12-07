@@ -1,0 +1,8 @@
+sudo dnf -y upgrade
+sudo dnf -y install https://extras.getpagespeed.com/release-el8-latest.rpm
+sudo dnf repolist
+sudo dnf -y --disablerepo=AppStream install nginx
+sudo systemctl enable nginx
+firewall-cmd --permanent --zone=public --add-service=http
+firewall-cmd --permanent --zone=public --add-service=https
+firewall-cmd --reload
